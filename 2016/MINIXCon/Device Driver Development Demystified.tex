@@ -1,0 +1,461 @@
+%
+% Device Driver Development Demystified
+% Copyright (C) 2016 Thomas Cort
+%
+\documentclass{beamer}
+\usepackage{listings}
+\usetheme{Madrid}
+
+\begin{document}
+
+\title{Device Driver Development Demystified}
+%%\subtitle{MINIXCon 2016}
+%\author{Thomas Cort \texttt{<tcort@minix3.org>}}
+\author{Thomas Cort}
+\date{February 1, 2016}
+\institute{MINIXCon 2016}
+
+\begin{frame}
+\titlepage
+\end{frame}
+
+\begin{frame}{whoami(1)}
+  Open Source Contributor and Former Google Summer of Code Student
+  \begin{itemize}
+  \item GSoC 2010 - UNIX domain sockets
+  \item GSoC 2011 - software porting and pkgsrc improvements
+  \item GSoC 2013 - i2c drivers for the BeagleBone Black
+  \item Tested and Imported 90+ programs from NetBSD
+  \item Other minor patches
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Qualifications}
+  I've developed several drivers:
+  \begin{itemize}
+  \item i2c bus driver for BeagleBone (Black and White) \& BeagleBoard-xM
+  \item Weather Cape: SHT21, BMP085, TSL2550
+  \item Power Management: TPS65217, TPS65950
+  \item RTC, CAT24C256, TDA19988 (basic), GPIO (basic)
+  \item i2cscan(8), rebooting, poweroff (BeagleBone)
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Goal}
+  \centering
+  Inspire you to develop more device drivers for Minix
+\end{frame}
+
+\begin{frame}{How we're going to get there?}
+  \centering
+  Show how device drivers are built from concept to code
+\end{frame}
+
+\begin{frame}{Developing device drivers on Minix rocks}
+  \begin{itemize}
+  \item Infinite loops don't make the whole system freeze
+  \item Bad pointers don't make the whole system crash
+  \item No rebooting needed. Just start and stop your driver
+  \item Most drivers are single threaded
+  \item Most drivers only handle one request at a time
+  \item Messages between drivers are well defined and documented
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Questions to ask yourself when choosing a device}
+  \begin{itemize}
+  \item is it already supported (partially or fully)?
+  \item is a similar device already supported?
+  \item is anyone else already working on it?
+  \item is there documentation available?
+  \item is there hardware available?
+  \item is the device supported by other FOSS operating systems?
+  \item is it possible to use the device on a system supported by Minix?
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Where to begin}
+  Gather documentation:
+  \begin{itemize}
+  \item Existing Minix drivers and the Minix wiki
+  \item System Reference Manuals (SRM)
+  \item Technical Reference Manuals (TRM)
+  \item Data Sheets
+  \item Example code from the device manufacturer (sdk)
+  \item Code from other operating systems (Linux, BSD, Haiku, etc)
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Eliminate hardware issues before you write a line of code}
+  \begin{itemize}
+  \item Start with new or gently used hardware
+  \item Test the device with another OS
+  \item Test the computer with Minix
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{External Interface Design}
+  Stand on the shoulders of giants!
+  \begin{itemize}
+  \item If it's a new class of device, follow the lead of NetBSD
+  \item If it's an existing class of device, implement the established interface
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Case Study}
+  \centering
+  bmp085 temperature sensor
+\end{frame}
+
+\defverbatim[colored]\lstI{
+\begin{lstlisting}[language=sh,basicstyle=\ttfamily,keywordstyle=\color{red}]
+/usr/src/minix/drivers/sensors/bmp085
+├── bmp085.c
+├── Makefile
+└── README.txt
+\end{lstlisting}
+}
+
+\begin{frame}{File Layout}
+  \lstI
+\end{frame}
+
+\defverbatim[colored]\lstI{
+\begin{lstlisting}[language=sh,basicstyle=\ttfamily]
+.include <bsd.own.mk>
+
+.if ${MACHINE_ARCH} == "earm"
+SUBDIR+=        bmp085
+SUBDIR+=        sht21
+SUBDIR+=        tsl2550
+.endif # ${MACHINE_ARCH} == "earm"
+
+.include <bsd.subdir.mk>
+\end{lstlisting}
+}
+
+\begin{frame}{../Makefile}
+  \lstI
+\end{frame}
+
+
+\defverbatim[colored]\lstI{
+\begin{lstlisting}[language=sh,basicstyle=\ttfamily]
+# Makefile for the bmp085 pressure and temp sensor found on the Weather Cape.
+PROG=   bmp085
+SRCS=   bmp085.c
+
+DPADD+= ${LIBI2CDRIVER} ${LIBCHARDRIVER} ${LIBSYS}\
+        ${LIBTIMERS}
+LDADD+= -li2cdriver -lchardriver -lsys -ltimers
+
+CPPFLAGS+=      -I${NETBSDSRCDIR}
+
+.include <minix.service.mk>
+\end{lstlisting}
+}
+
+\begin{frame}{./Makefile}
+  \lstI
+\end{frame}
+
+\begin{frame}{./README.txt}
+  Provides answers to the following questions:
+  \begin{itemize}
+  \item what does the driver do?
+  \item what is in each source file?
+  \item how do I start/stop/test the driver?
+  \item are there any limitations?
+  \item where can I find more information about this device?
+  \end{itemize}
+\end{frame}
+
+\defverbatim[colored]\lstI{
+\begin{lstlisting}[language=sh,basicstyle=\ttfamily]
+service bmp085
+{
+        ipc SYSTEM RS DS i2c;
+};
+\end{lstlisting}
+}
+
+\begin{frame}{etc/system.conf}
+  \lstI
+\end{frame}
+
+
+\defverbatim[colored]\lstI{
+\begin{lstlisting}[language=sh,basicstyle=\ttfamily]
+./service/bmp085    minix-base
+\end{lstlisting}
+}
+
+\begin{frame}{distrib/sets/lists/minix-base/md.evbarm}
+  \lstI
+\end{frame}
+
+
+\defverbatim[colored]\lstI{
+\begin{lstlisting}[language=C,basicstyle=\ttfamily]
+int main(int argc, char *argv[]) {
+        int r;
+
+        env_setargs(argc, argv);
+
+        r = i2cdriver_env_parse(&bus, &address,
+                                      valid_addrs);
+        if (r < 0) /* ... */
+        else if (r > 0) /* ... */
+
+        sef_local_startup();
+        chardriver_task(&bmp085_tab);
+        return 0;
+}
+\end{lstlisting}
+}
+
+\begin{frame}{main()}
+  \lstI
+\end{frame}
+
+\defverbatim[colored]\lstI{
+\begin{lstlisting}[language=C,basicstyle=\ttfamily]
+static void sef_local_startup(void) {
+        /* Register init callbacks. */
+        sef_setcb_init_fresh(sef_cb_init);
+        sef_setcb_init_lu(sef_cb_init);
+        sef_setcb_init_restart(sef_cb_init);
+
+        /* Register live update callbacks. */
+        sef_setcb_lu_state_save(
+                           sef_cb_lu_state_save);
+
+        /* Let SEF perform startup. */
+        sef_startup();
+}
+\end{lstlisting}
+}
+
+\begin{frame}{sef\_local\_startup(void)}
+  \lstI
+\end{frame}
+
+
+\defverbatim[colored]\lstI{
+\begin{lstlisting}[language=C,basicstyle=\ttfamily]
+static int
+sef_cb_init(int type, sef_init_info_t *info) {
+
+  if (type == SEF_INIT_LU) lu_state_restore();
+
+  /* ... i2cdriver_reserve_address() ... */
+
+  if (bmp085_init() != OK) return EXIT_FAILURE;
+
+  if (type != SEF_INIT_LU) {
+    if (i2cdriver_subscribe_bus_updates(bus) != OK)
+      return EXIT_FAILURE;
+    i2cdriver_announce(bus);
+  }
+  return OK;
+}
+\end{lstlisting}
+}
+
+\begin{frame}{sef\_cb\_init(int type, sef\_init\_info\_t *info)}
+  \lstI
+\end{frame}
+
+
+\defverbatim[colored]\lstI{
+\begin{lstlisting}[language=C,basicstyle=\ttfamily]
+static int
+sef_cb_lu_state_save(int result, int flags)
+{
+        ds_publish_u32("bus", bus, DSF_OVERWRITE);
+        ds_publish_u32("address", address,
+                                   DSF_OVERWRITE);
+        return OK;
+}
+\end{lstlisting}
+}
+
+\begin{frame}{sef\_cb\_lu\_state\_save(int result, int flags)}
+  \lstI
+\end{frame}
+
+
+\defverbatim[colored]\lstI{
+\begin{lstlisting}[language=C,basicstyle=\ttfamily]
+static int
+lu_state_restore(void)
+{
+        /* Restore the state. */
+        u32_t value;
+
+        ds_retrieve_u32("bus", &value);
+        ds_delete_u32("bus");
+        bus = (int) value;
+
+        ds_retrieve_u32("address", &value);
+        ds_delete_u32("address");
+        address = (int) value;
+
+        return OK;
+}
+\end{lstlisting}
+}
+
+\begin{frame}{lu\_state\_restore(void)}
+  \lstI
+\end{frame}
+
+
+\defverbatim[colored]\lstI{
+\begin{lstlisting}[language=C,basicstyle=\ttfamily]
+static int
+bmp085_init(void)
+{
+        if (version_check() != OK)
+                return EXIT_FAILURE;
+
+        if (read_cal_coef() != OK)
+                return EXIT_FAILURE;
+
+        return OK;
+}
+\end{lstlisting}
+}
+
+\begin{frame}{bmp085\_init(void)}
+  \lstI
+\end{frame}
+
+\defverbatim[colored]\lstI{
+\begin{lstlisting}[language=C,basicstyle=\ttfamily]
+static ssize_t
+bmp085_read(devminor_t minor, u64_t position,
+    endpoint_t endpt, cp_grant_id_t grant,
+    size_t size, int flags, cdev_id_t id);
+
+static void
+bmp085_other(message * m, int ipc_status);
+
+static struct chardriver bmp085_tab = {
+        .cdr_read       = bmp085_read,
+        .cdr_other      = bmp085_other
+};
+\end{lstlisting}
+}
+
+\begin{frame}{libchardriver callbacks}
+  \lstI
+\end{frame}
+
+
+
+\defverbatim[colored]\lstI{
+\begin{lstlisting}[language=C,basicstyle=\ttfamily]
+
+  if (measure(&temperature, &pressure) != OK)
+      return EIO;
+
+  /* ... fill buffer with measurements ... */
+
+  dev_size = (u64_t)strlen(buffer);
+  if (position >= dev_size) return 0;
+  if (position + size > dev_size)
+      size = (size_t)(dev_size - position);
+
+  r = sys_safecopyto(endpt, grant, 0,
+     (vir_bytes)(buffer + (size_t)position),size);
+
+  return (r != OK) ? r : size;
+\end{lstlisting}
+}
+
+\begin{frame}{bmp085\_read(...)}
+  \lstI
+\end{frame}
+
+
+\defverbatim[colored]\lstI{
+  \begin{lstlisting}[language=C,basicstyle=\ttfamily]
+/* ... */
+
+/* trigger temperature reading */
+if (i2creg_write8(bus_endpoint, address, CTRL_REG,
+                  CMD_TRIG_T) != OK)
+    return -1;
+
+micro_delay(UDELAY_T); /* wait for sampling. */
+
+/* read the uncompensated temperature */
+if (i2creg_read16(bus_endpoint, address,
+                  SENSOR_VAL_MSB_REG, &ut) != OK)
+    return -1;
+
+/* ... */
+
+return OK;
+\end{lstlisting}
+}
+
+\begin{frame}{measure(int32\_t * temperature, int32\_t * pressure)}
+  \lstI
+\end{frame}
+
+\begin{frame}{Tips for Debugging and Minimizing Bugs}
+  \begin{itemize}
+  \item Make many small changes
+  \item Compile and test after each change
+  \item Lots of logging via \texttt{minix/log.h}
+  \item Hardware debugger when really stuck
+  \item Avoid hardware simulators when possible
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Pre-submission Checklist}
+  \begin{itemize}
+  \item Does the code build without any compiler warnings?
+  \item Does building Minix for the other platform still work?
+  \item Is the driver stable, and does it word as advertised?
+  \item Does the driver have a negligible impact on performance?
+  \item Are the changes broken up into a series of small commits?
+  \item Are there well written commit messages?
+  \item Is the coding style consistent with the NetBSD coding style?
+  \item Have you complied with all applicable licenses?
+  \item Have you given proper credit to collaborators?
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Submitting your changes}
+  \begin{itemize}
+  \item Ask for feedback on \texttt{minix-dev} Google Group
+  \item Submit a pull request on github
+  \item Respond to feedback and requests for changes
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}{Questions?}
+  \centering
+  Questions?
+\end{frame}
+
+\begin{frame}{Contact Info}
+\begin{block}{Internet Relay Chat}
+tcort on irc.freenode.net
+\end{block}
+\begin{block}{E-Mail}
+tcort@minix3.org
+\end{block}
+\begin{block}{Twitter}
+@tomcort
+\end{block}
+\begin{block}{Website}
+http://www.tomcort.com/
+\end{block}
+\end{frame}
+
+\end{document}
